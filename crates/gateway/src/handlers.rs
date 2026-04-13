@@ -578,6 +578,30 @@ async fn get_config(
         "api_url": config.api_url,
         "api_key": config.api_key,
         "skin": config.display.skin,
+        "platforms": {
+            "telegram": {
+                "bot_token": config.platforms.telegram.bot_token,
+                "enabled": config.platforms.telegram.enabled,
+            },
+            "discord": {
+                "bot_token": config.platforms.discord.bot_token,
+                "enabled": config.platforms.discord.enabled,
+            },
+            "slack": {
+                "bot_token": config.platforms.slack.bot_token,
+                "enabled": config.platforms.slack.enabled,
+            },
+            "whatsapp": {
+                "bridge_url": config.platforms.whatsapp.bridge_url,
+                "api_token": config.platforms.whatsapp.api_token,
+                "enabled": config.platforms.whatsapp.enabled,
+            },
+            "signal": {
+                "http_url": config.platforms.signal.http_url,
+                "account": config.platforms.signal.account,
+                "enabled": config.platforms.signal.enabled,
+            },
+        }
     })))
 }
 
@@ -597,6 +621,13 @@ async fn update_config(
         "api_url": config.api_url,
         "api_key": config.api_key,
         "skin": config.display.skin,
+        "platforms": {
+            "telegram": { "bot_token": config.platforms.telegram.bot_token, "enabled": config.platforms.telegram.enabled },
+            "discord": { "bot_token": config.platforms.discord.bot_token, "enabled": config.platforms.discord.enabled },
+            "slack": { "bot_token": config.platforms.slack.bot_token, "enabled": config.platforms.slack.enabled },
+            "whatsapp": { "bridge_url": config.platforms.whatsapp.bridge_url, "api_token": config.platforms.whatsapp.api_token, "enabled": config.platforms.whatsapp.enabled },
+            "signal": { "http_url": config.platforms.signal.http_url, "account": config.platforms.signal.account, "enabled": config.platforms.signal.enabled },
+        }
     })))
 }
 
@@ -642,6 +673,18 @@ async fn set_provider(
         api_url: Some(provider.base_url.clone()),
         api_key: req.api_key,
         skin: None,
+        telegram_token: None,
+        telegram_enabled: None,
+        discord_token: None,
+        discord_enabled: None,
+        slack_token: None,
+        slack_enabled: None,
+        whatsapp_bridge_url: None,
+        whatsapp_api_token: None,
+        whatsapp_enabled: None,
+        signal_http_url: None,
+        signal_account: None,
+        signal_enabled: None,
     };
 
     if let Some(ref key) = update.api_key {
@@ -861,6 +904,18 @@ async fn switch_model(
         api_url: Some(api_url),
         api_key: if api_key.is_empty() { None } else { Some(api_key) },
         skin: None,
+        telegram_token: None,
+        telegram_enabled: None,
+        discord_token: None,
+        discord_enabled: None,
+        slack_token: None,
+        slack_enabled: None,
+        whatsapp_bridge_url: None,
+        whatsapp_api_token: None,
+        whatsapp_enabled: None,
+        signal_http_url: None,
+        signal_account: None,
+        signal_enabled: None,
     };
     if let Err(e) = state.config.write().await.update(update) {
         return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {

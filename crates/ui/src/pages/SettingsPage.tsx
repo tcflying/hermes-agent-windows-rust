@@ -1,4 +1,4 @@
-import { Key, Palette, Globe, CheckCircle2, XCircle, Loader2, Zap } from "lucide-react";
+import { Key, Palette, Globe, CheckCircle2, XCircle, Loader2, Zap, Radio } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import {
   getConfig,
@@ -36,6 +36,21 @@ export function SettingsPage() {
   const [manualApiKey, setManualApiKey] = useState("");
   const [manualSaveStatus, setManualSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
+  const [platforms, setPlatforms] = useState<{
+    telegram: { bot_token: string; enabled: boolean };
+    discord: { bot_token: string; enabled: boolean };
+    slack: { bot_token: string; enabled: boolean };
+    whatsapp: { bridge_url: string; api_token: string; enabled: boolean };
+    signal: { http_url: string; account: string; enabled: boolean };
+  }>({
+    telegram: { bot_token: "", enabled: false },
+    discord: { bot_token: "", enabled: false },
+    slack: { bot_token: "", enabled: false },
+    whatsapp: { bridge_url: "", api_token: "", enabled: false },
+    signal: { http_url: "", account: "", enabled: false },
+  });
+  const [platformSaveStatus, setPlatformSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -54,6 +69,9 @@ export function SettingsPage() {
       setManualModel(cfg.model || "");
       setManualApiUrl(cfg.api_url || "");
       setManualApiKey(cfg.api_key || "");
+      if (cfg.platforms) {
+        setPlatforms(cfg.platforms);
+      }
     }).catch(() => {});
   }, []);
 
@@ -115,6 +133,33 @@ export function SettingsPage() {
   const isModelActive = (modelId: string) =>
     config?.model === modelId || config?.model?.endsWith(`/${modelId}`);
 
+  const handlePlatformSave = async () => {
+    setPlatformSaveStatus("saving");
+    try {
+      await updateConfig({
+        telegram_token: platforms.telegram.bot_token,
+        telegram_enabled: platforms.telegram.enabled,
+        discord_token: platforms.discord.bot_token,
+        discord_enabled: platforms.discord.enabled,
+        slack_token: platforms.slack.bot_token,
+        slack_enabled: platforms.slack.enabled,
+        whatsapp_bridge_url: platforms.whatsapp.bridge_url,
+        whatsapp_api_token: platforms.whatsapp.api_token,
+        whatsapp_enabled: platforms.whatsapp.enabled,
+        signal_http_url: platforms.signal.http_url,
+        signal_account: platforms.signal.account,
+        signal_enabled: platforms.signal.enabled,
+      } as any);
+      showToast("Platform configuration saved");
+      setPlatformSaveStatus("saved");
+      setTimeout(() => setPlatformSaveStatus("idle"), 2000);
+    } catch {
+      setPlatformSaveStatus("error");
+      showToast("Failed to save platform configuration", "error");
+      setTimeout(() => setPlatformSaveStatus("idle"), 3000);
+    }
+  };
+
   return (
     <div className="page-container settings-page">
       {toast && (
@@ -170,6 +215,13 @@ export function SettingsPage() {
           >
             <Zap size={18} />
             <span>Manual Config</span>
+          </button>
+          <button
+            className={`settings-nav-item ${activeTab === "platforms" ? "active" : ""}`}
+            onClick={() => setActiveTab("platforms")}
+          >
+            <Radio size={18} />
+            <span>Platforms</span>
           </button>
         </nav>
 
@@ -326,6 +378,75 @@ export function SettingsPage() {
                   {manualSaveStatus === "saving" ? "Saving..." : manualSaveStatus === "saved" ? "✓ Saved" : manualSaveStatus === "error" ? "Error" : "Save Configuration"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {activeTab === "platforms" && (
+            <div className="settings-section">
+              <h2>Messaging Platforms</h2>
+              <p className="settings-description">Connect Hermes to Telegram, Discord, Slack, WhatsApp, or Signal</p>
+              <div className="platform-list">
+                <div className="platform-card">
+                  <div className="platform-card-header">
+                    <span className="platform-name">Telegram</span>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={platforms.telegram.enabled} onChange={e => setPlatforms(p => ({...p, telegram: {...p.telegram, enabled: e.target.checked}}))} />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <label><span>Bot Token</span><input type="password" value={platforms.telegram.bot_token} onChange={e => setPlatforms(p => ({...p, telegram: {...p.telegram, bot_token: e.target.value}}))} placeholder="123456:ABC-DEF..." /></label>
+                </div>
+                <div className="platform-card">
+                  <div className="platform-card-header">
+                    <span className="platform-name">Discord</span>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={platforms.discord.enabled} onChange={e => setPlatforms(p => ({...p, discord: {...p.discord, enabled: e.target.checked}}))} />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <label><span>Bot Token</span><input type="password" value={platforms.discord.bot_token} onChange={e => setPlatforms(p => ({...p, discord: {...p.discord, bot_token: e.target.value}}))} placeholder="MTk4NjIy..." /></label>
+                </div>
+                <div className="platform-card">
+                  <div className="platform-card-header">
+                    <span className="platform-name">Slack</span>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={platforms.slack.enabled} onChange={e => setPlatforms(p => ({...p, slack: {...p.slack, enabled: e.target.checked}}))} />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <label><span>Bot Token</span><input type="password" value={platforms.slack.bot_token} onChange={e => setPlatforms(p => ({...p, slack: {...p.slack, bot_token: e.target.value}}))} placeholder="xoxb-..." /></label>
+                </div>
+                <div className="platform-card">
+                  <div className="platform-card-header">
+                    <span className="platform-name">WhatsApp</span>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={platforms.whatsapp.enabled} onChange={e => setPlatforms(p => ({...p, whatsapp: {...p.whatsapp, enabled: e.target.checked}}))} />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <label><span>Bridge URL</span><input type="text" value={platforms.whatsapp.bridge_url} onChange={e => setPlatforms(p => ({...p, whatsapp: {...p.whatsapp, bridge_url: e.target.value}}))} placeholder="http://localhost:3000" /></label>
+                  <label><span>API Token</span><input type="password" value={platforms.whatsapp.api_token} onChange={e => setPlatforms(p => ({...p, whatsapp: {...p.whatsapp, api_token: e.target.value}}))} placeholder="your-bridge-token" /></label>
+                </div>
+                <div className="platform-card">
+                  <div className="platform-card-header">
+                    <span className="platform-name">Signal</span>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={platforms.signal.enabled} onChange={e => setPlatforms(p => ({...p, signal: {...p.signal, enabled: e.target.checked}}))} />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <label><span>HTTP URL</span><input type="text" value={platforms.signal.http_url} onChange={e => setPlatforms(p => ({...p, signal: {...p.signal, http_url: e.target.value}}))} placeholder="http://127.0.0.1:8080" /></label>
+                  <label><span>Account (Phone)</span><input type="text" value={platforms.signal.account} onChange={e => setPlatforms(p => ({...p, signal: {...p.signal, account: e.target.value}}))} placeholder="+15551234567" /></label>
+                </div>
+              </div>
+              <button
+                className={`save-btn ${platformSaveStatus}`}
+                onClick={handlePlatformSave}
+                disabled={platformSaveStatus === "saving"}
+                style={{ marginTop: 16 }}
+              >
+                {platformSaveStatus === "saving" ? "Saving..." : platformSaveStatus === "saved" ? "✓ Saved" : platformSaveStatus === "error" ? "Error" : "Save Platform Config"}
+              </button>
             </div>
           )}
         </div>
@@ -512,6 +633,91 @@ export function SettingsPage() {
         }
         .manual-config-form input:focus {
           border-color: #3b82f6;
+        }
+
+        .platform-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-top: 16px;
+        }
+        .platform-card {
+          background: #1e293b;
+          border: 1px solid #334155;
+          border-radius: 10px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .platform-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .platform-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: #e2e8f0;
+        }
+        .platform-card label {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .platform-card label span {
+          font-size: 12px;
+          color: #94a3b8;
+          font-weight: 500;
+        }
+        .platform-card input {
+          background: #0f172a;
+          border: 1px solid #334155;
+          border-radius: 6px;
+          color: #e2e8f0;
+          padding: 8px 12px;
+          font-size: 13px;
+          outline: none;
+        }
+        .platform-card input:focus {
+          border-color: #3b82f6;
+        }
+        .toggle-switch {
+          position: relative;
+          display: inline-block;
+          width: 40px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+        .toggle-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .toggle-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: #475569;
+          border-radius: 22px;
+          transition: 0.3s;
+        }
+        .toggle-slider:before {
+          position: absolute;
+          content: "";
+          height: 16px;
+          width: 16px;
+          left: 3px;
+          bottom: 3px;
+          background: white;
+          border-radius: 50%;
+          transition: 0.3s;
+        }
+        .toggle-switch input:checked + .toggle-slider {
+          background: #3b82f6;
+        }
+        .toggle-switch input:checked + .toggle-slider:before {
+          transform: translateX(18px);
         }
       `}</style>
     </div>

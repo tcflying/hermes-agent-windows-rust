@@ -16,6 +16,66 @@ pub struct Config {
     pub tools: Vec<String>,
     #[serde(default)]
     pub display: DisplayConfig,
+    #[serde(default)]
+    pub platforms: PlatformConfig,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlatformConfig {
+    #[serde(default)]
+    pub telegram: TelegramConfig,
+    #[serde(default)]
+    pub discord: DiscordConfig,
+    #[serde(default)]
+    pub slack: SlackConfig,
+    #[serde(default)]
+    pub whatsapp: WhatsAppConfig,
+    #[serde(default)]
+    pub signal: SignalConfig,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TelegramConfig {
+    #[serde(default)]
+    pub bot_token: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DiscordConfig {
+    #[serde(default)]
+    pub bot_token: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SlackConfig {
+    #[serde(default)]
+    pub bot_token: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WhatsAppConfig {
+    #[serde(default)]
+    pub bridge_url: String,
+    #[serde(default)]
+    pub api_token: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SignalConfig {
+    #[serde(default)]
+    pub http_url: String,
+    #[serde(default)]
+    pub account: String,
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 fn default_model() -> String {
@@ -53,6 +113,66 @@ impl Default for Config {
             api_key: String::new(),
             tools: vec![],
             display: DisplayConfig::default(),
+            platforms: PlatformConfig::default(),
+        }
+    }
+}
+
+impl Default for PlatformConfig {
+    fn default() -> Self {
+        Self {
+            telegram: TelegramConfig::default(),
+            discord: DiscordConfig::default(),
+            slack: SlackConfig::default(),
+            whatsapp: WhatsAppConfig::default(),
+            signal: SignalConfig::default(),
+        }
+    }
+}
+
+impl Default for TelegramConfig {
+    fn default() -> Self {
+        Self {
+            bot_token: String::new(),
+            enabled: false,
+        }
+    }
+}
+
+impl Default for DiscordConfig {
+    fn default() -> Self {
+        Self {
+            bot_token: String::new(),
+            enabled: false,
+        }
+    }
+}
+
+impl Default for SlackConfig {
+    fn default() -> Self {
+        Self {
+            bot_token: String::new(),
+            enabled: false,
+        }
+    }
+}
+
+impl Default for WhatsAppConfig {
+    fn default() -> Self {
+        Self {
+            bridge_url: String::new(),
+            api_token: String::new(),
+            enabled: false,
+        }
+    }
+}
+
+impl Default for SignalConfig {
+    fn default() -> Self {
+        Self {
+            http_url: String::new(),
+            account: String::new(),
+            enabled: false,
         }
     }
 }
@@ -64,6 +184,18 @@ pub struct ConfigUpdate {
     pub api_url: Option<String>,
     pub api_key: Option<String>,
     pub skin: Option<String>,
+    pub telegram_token: Option<String>,
+    pub telegram_enabled: Option<bool>,
+    pub discord_token: Option<String>,
+    pub discord_enabled: Option<bool>,
+    pub slack_token: Option<String>,
+    pub slack_enabled: Option<bool>,
+    pub whatsapp_bridge_url: Option<String>,
+    pub whatsapp_api_token: Option<String>,
+    pub whatsapp_enabled: Option<bool>,
+    pub signal_http_url: Option<String>,
+    pub signal_account: Option<String>,
+    pub signal_enabled: Option<bool>,
 }
 
 pub struct ConfigLoader {
@@ -107,6 +239,42 @@ impl ConfigLoader {
         }
         if let Some(s) = update.skin {
             self.config.display.skin = s;
+        }
+        if let Some(t) = update.telegram_token {
+            self.config.platforms.telegram.bot_token = t;
+        }
+        if let Some(e) = update.telegram_enabled {
+            self.config.platforms.telegram.enabled = e;
+        }
+        if let Some(t) = update.discord_token {
+            self.config.platforms.discord.bot_token = t;
+        }
+        if let Some(e) = update.discord_enabled {
+            self.config.platforms.discord.enabled = e;
+        }
+        if let Some(t) = update.slack_token {
+            self.config.platforms.slack.bot_token = t;
+        }
+        if let Some(e) = update.slack_enabled {
+            self.config.platforms.slack.enabled = e;
+        }
+        if let Some(u) = update.whatsapp_bridge_url {
+            self.config.platforms.whatsapp.bridge_url = u;
+        }
+        if let Some(t) = update.whatsapp_api_token {
+            self.config.platforms.whatsapp.api_token = t;
+        }
+        if let Some(e) = update.whatsapp_enabled {
+            self.config.platforms.whatsapp.enabled = e;
+        }
+        if let Some(u) = update.signal_http_url {
+            self.config.platforms.signal.http_url = u;
+        }
+        if let Some(a) = update.signal_account {
+            self.config.platforms.signal.account = a;
+        }
+        if let Some(e) = update.signal_enabled {
+            self.config.platforms.signal.enabled = e;
         }
         self.save()
     }
@@ -177,6 +345,18 @@ mod tests {
             api_url: None,
             api_key: None,
             skin: Some("mono".to_string()),
+            telegram_token: None,
+            telegram_enabled: None,
+            discord_token: None,
+            discord_enabled: None,
+            slack_token: None,
+            slack_enabled: None,
+            whatsapp_bridge_url: None,
+            whatsapp_api_token: None,
+            whatsapp_enabled: None,
+            signal_http_url: None,
+            signal_account: None,
+            signal_enabled: None,
         };
         let yaml = serde_yaml::to_string(&update).unwrap();
         assert!(yaml.contains("gpt-4o"));
@@ -209,6 +389,18 @@ mod tests {
                 api_url: None,
                 api_key: None,
                 skin: None,
+                telegram_token: None,
+                telegram_enabled: None,
+                discord_token: None,
+                discord_enabled: None,
+                slack_token: None,
+                slack_enabled: None,
+                whatsapp_bridge_url: None,
+                whatsapp_api_token: None,
+                whatsapp_enabled: None,
+                signal_http_url: None,
+                signal_account: None,
+                signal_enabled: None,
             })
             .unwrap();
         assert_eq!(loader.get().model, "claude-sonnet-4-20250514");

@@ -386,6 +386,13 @@ export interface AppConfig {
   api_url: string;
   api_key: string;
   skin: string;
+  platforms: {
+    telegram: { bot_token: string; enabled: boolean };
+    discord: { bot_token: string; enabled: boolean };
+    slack: { bot_token: string; enabled: boolean };
+    whatsapp: { bridge_url: string; api_token: string; enabled: boolean };
+    signal: { http_url: string; account: string; enabled: boolean };
+  };
 }
 
 export async function getConfig(): Promise<AppConfig> {
