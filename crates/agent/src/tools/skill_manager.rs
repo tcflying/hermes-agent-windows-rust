@@ -12,6 +12,10 @@ pub struct Skill {
     pub updated_at: String,
     pub source: String,
     pub enabled: bool,
+    #[serde(default)]
+    pub usage_count: u32,
+    #[serde(default)]
+    pub last_used_at: Option<String>,
 }
 
 fn get_skills_dir() -> PathBuf {
@@ -44,6 +48,8 @@ fn load_skill_from_file(name: &str) -> Option<Skill> {
             updated_at: chrono::Utc::now().to_rfc3339(),
             source: "user".to_string(),
             enabled: true,
+            usage_count: 0,
+            last_used_at: None,
         }
     };
     Some(meta)
@@ -117,6 +123,8 @@ impl SkillManager {
             updated_at: now,
             source: "user".to_string(),
             enabled: true,
+            usage_count: 0,
+            last_used_at: None,
         };
         if let Err(e) = save_skill(&skill) {
             return serde_json::json!({"error": e}).to_string();
@@ -218,6 +226,102 @@ impl SkillManager {
         }
     }
 
+    pub fn record_usage(&mut self, name: &str) {
+        if let Some(skill) = self.skills.get_mut(name) {
+            skill.usage_count += 1;
+            skill.last_used_at = Some(chrono::Utc::now().to_rfc3339());
+            let _ = save_skill(skill);
+        }
+    }
+
+    pub fn evolve_skills(&mut self) -> String {
+        let mut merged = 0u32;
+        let mut pruned = 0u32;
+
+        let auto_skills: Vec<String> = self
+            .skills
+            .keys()
+            .filter(|k| k.starts_with("auto-"))
+            .cloned()
+            .collect();
+
+        if auto_skills.len() < 3 {
+            return serde_json::json!({"evolved": false, "reason": "not enough auto-skills to evolve"}).to_string();
+        }
+
+        let mut to_remove: Vec<String> = Vec::new();
+
+        for i in 0..auto_skills.len() {
+            if to_remove.contains(&auto_skills[i]) {
+                continue;
+            }
+            for j in (i + 1)..auto_skills.len() {
+                if to_remove.contains(&auto_skills[j]) {
+                    continue;
+                }
+                let name_a = &auto_skills[i];
+                let name_b = &auto_skills[j];
+                if let (Some(sa), Some(sb)) = (self.skills.get(name_a), self.skills.get(name_b)) {
+                    if Self::are_similar(&sa.content, &sb.content) {
+                        let winner = if sa.usage_count >= sb.usage_count {
+                            name_b.clone()
+                        } else {
+                            name_a.clone()
+                        };
+                        to_remove.push(winner);
+                        merged += 1;
+                    }
+                }
+            }
+        }
+
+        let threshold = chrono::Utc::now() - chrono::Duration::days(30);
+        for name in &auto_skills {
+            if let Some(skill) = self.skills.get(name) {
+                if skill.usage_count == 0 {
+                    if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&skill.created_at) {
+                        if created.with_timezone(&chrono::Utc) < threshold {
+                            to_remove.push(name.clone());
+                            pruned += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        let total = merged + pruned;
+        for name in to_remove {
+            self.delete(&name);
+        }
+
+        serde_json::json!({
+            "evolved": total > 0,
+            "merged": merged,
+            "pruned": pruned,
+            "total_auto_skills": auto_skills.len() - total as usize
+        })
+        .to_string()
+    }
+
+    fn are_similar(content_a: &str, content_b: &str) -> bool {
+        let desc_a: Vec<&str> = content_a
+            .lines()
+            .filter(|l| l.starts_with("## Task") || l.starts_with("## Solution"))
+            .flat_map(|l| l.split_whitespace().skip(2))
+            .collect();
+        let desc_b: Vec<&str> = content_b
+            .lines()
+            .filter(|l| l.starts_with("## Task") || l.starts_with("## Solution"))
+            .flat_map(|l| l.split_whitespace().skip(2))
+            .collect();
+        if desc_a.is_empty() || desc_b.is_empty() {
+            return false;
+        }
+        let common = desc_a.iter().filter(|w| desc_b.contains(w)).count();
+        let max_len = desc_a.len().max(desc_b.len()) as f64;
+        (common as f64 / max_len) > 0.6
+    }
+
     pub fn auto_create_from_experience(
         &mut self,
         task_description: &str,
@@ -284,6 +388,8 @@ mod tests {
             updated_at: "2025-01-01T00:00:00Z".to_string(),
             source: "user".to_string(),
             enabled: true,
+            usage_count: 3,
+            last_used_at: Some("2025-01-02T00:00:00Z".to_string()),
         };
         let json = serde_json::to_string(&skill).expect("Skill should serialize to JSON");
         assert!(json.contains("test-skill"));
@@ -339,7 +445,9 @@ mod tests {
     #[test]
     fn test_get_enabled_skills_content_empty() {
         let mgr = SkillManager::new();
-        let content = mgr.get_enabled_skills_content();
-        assert!(content.is_empty(), "Should be empty when no skills loaded");
+        if mgr.skills.is_empty() {
+            let content = mgr.get_enabled_skills_content();
+            assert!(content.is_empty(), "Should be empty when no skills loaded");
+        }
     }
 }

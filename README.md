@@ -217,7 +217,7 @@ cargo clippy --fix
 | CLI + slash commands | ✅ Working |
 | Streaming interrupt | ✅ Working |
 | Platform adapters | 🔧 Stub only |
-| Skill self-evolution | 🔜 Not started (auto-creation from experience ✅) |
+| Skill self-evolution | ✅ Auto-create, merge duplicates, prune stale |
 | ACP adapter (VS Code) | 🔜 Not started |
 
 ---

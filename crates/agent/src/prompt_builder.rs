@@ -7,6 +7,8 @@ const DEFAULT_IDENTITY: &str = "You are Hermes Agent, an intelligent AI assistan
 
 const MEMORY_GUIDANCE: &str = "You have persistent memory across sessions. Save durable facts using the memory tool: user preferences, environment details, tool quirks, and stable conventions. Memory is injected into every turn, so keep it compact and focused on facts that will still matter later. Prioritize what reduces future user steering.";
 
+const SKILL_EVOLUTION_GUIDANCE: &str = "Skills are your procedural memory — reusable approaches for recurring task types. Self-improvement rules:\n1. After a complex task succeeds (5+ tool calls, errors overcome, user-corrected approach), create a skill capturing the approach.\n2. If you used a skill and hit issues NOT covered by it, UPDATE the skill immediately to include the new knowledge.\n3. If a skill's instructions are stale or wrong, fix it right away.\n4. Good skills include: trigger conditions, numbered steps with exact commands, pitfalls section, verification steps.";
+
 const CONTEXT_THREAT_PATTERNS: &[&str] = &[
     r"(?i)ignore\s+(previous|all|above|prior)\s+instructions",
     r"(?i)do\s+not\s+tell\s+the\s+user",
@@ -122,6 +124,16 @@ impl PromptBuilder {
                 .unwrap_or(false)
         }) {
             sections.push(MEMORY_GUIDANCE.to_string());
+        }
+
+        if tool_schemas.iter().any(|t| {
+            t.get("function")
+                .and_then(|f| f.get("name"))
+                .and_then(|n| n.as_str())
+                .map(|s| s.starts_with("skill_"))
+                .unwrap_or(false)
+        }) {
+            sections.push(SKILL_EVOLUTION_GUIDANCE.to_string());
         }
 
         if let Some(ref snapshot) = self.memory_snapshot {

@@ -342,6 +342,8 @@ impl ChatAgent {
                     let mut sm = self.skill_manager.lock().await;
                     let result = sm.auto_create_from_experience(&summary, &solution);
                     log_agent("tool", &format!("⚡ Auto-skill created: {}", result));
+                    let evolve_result = sm.evolve_skills();
+                    log_agent("tool", &format!("🔄 Skill evolution: {}", evolve_result));
                 }
             }
 
@@ -621,8 +623,10 @@ impl ChatAgent {
                 }
                 "skill_view" => {
                     let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    let mgr = crate::tools::skill_manager::SkillManager::new();
-                    mgr.view(name)
+                    let mut mgr = crate::tools::skill_manager::SkillManager::new();
+                    let result = mgr.view(name);
+                    mgr.record_usage(name);
+                    result
                 }
                 "image_analyze" => {
                     let image_path = args.get("image_path").and_then(|v| v.as_str()).unwrap_or("").to_string();
