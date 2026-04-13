@@ -1,0 +1,30 @@
+[package]
+name = "hermes-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "hermes"
+path = "src/bin/hermes.rs"
+
+[dependencies]
+hermes-agent = { path = "../agent" }
+hermes-tool-registry = { path = "../tool-registry" }
+hermes-session = { path = "../session" }
+hermes-config = { path = "../config" }
+hermes-gateway = { path = "../gateway" }
+clap.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+dirs.workspace = true
+tracing-subscriber.workspace = true

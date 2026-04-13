@@ -1,0 +1,14 @@
+# Rust build artifacts
+target/
+dist/
+
+# Node.js
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+*.log

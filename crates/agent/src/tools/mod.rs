@@ -1,0 +1,11 @@
+pub mod approval;
+pub mod browser;
+pub mod code_exec;
+pub mod cron;
+pub mod mcp_client;
+pub mod patch;
+pub mod process_registry;
+pub mod search;
+pub mod skill_manager;
+pub mod todo;
+pub mod web;

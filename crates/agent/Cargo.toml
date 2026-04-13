@@ -1,0 +1,31 @@
+[package]
+name = "hermes-agent"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "hermes_agent"
+path = "src/lib.rs"
+
+[dependencies]
+hermes-tool-registry = { path = "../tool-registry" }
+hermes-session = { path = "../session" }
+hermes-config = { path = "../config" }
+hermes-utils = { path = "../utils" }
+tokio.workspace = true
+tokio-stream.workspace = true
+reqwest.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+url.workspace = true
+regex = "1"
+dirs.workspace = true
+uuid = { version = "1", features = ["v4"] }
+lazy_static = "1"

@@ -1,0 +1,606 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "terminal",
+      "description": "Execute a command on the user's Windows system. Use this to run PowerShell commands, open applications, manage files, install software, start programs, etc.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The command to execute. For Windows, use cmd /C commands or PowerShell commands."
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory for the command. Optional."
+          }
+        },
+        "required": ["command"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "file_read",
+      "description": "Read the contents of a file from the local filesystem. Use this to inspect code, configs, logs, or any text file.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to the file to read."
+          }
+        },
+        "required": ["path"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "file_write",
+      "description": "Write content to a file on the local filesystem. Creates parent directories if needed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path where the file should be written."
+          },
+          "content": {
+            "type": "string",
+            "description": "The content to write to the file."
+          }
+        },
+        "required": ["path", "content"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "list_directory",
+      "description": "List files and directories at the given path. Shows file sizes and indicates directories with a trailing /.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory path to list. Defaults to current directory."
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "patch",
+      "description": "Apply a targeted edit to a file. Finds old_content in the file and replaces it with new_content. The match is fuzzy — minor whitespace differences are tolerated. Use this instead of file_write when you only need to change part of a file.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the file to patch."
+          },
+          "old_content": {
+            "type": "string",
+            "description": "The exact text to find in the file. Must be a unique substring."
+          },
+          "new_content": {
+            "type": "string",
+            "description": "The replacement text."
+          }
+        },
+        "required": ["path", "old_content", "new_content"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_files",
+      "description": "Search file contents for a pattern (regex supported). Returns matching lines with file paths and line numbers. Searches recursively from the given directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Search pattern (supports regex)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Directory to search in. Defaults to current directory."
+          },
+          "include": {
+            "type": "string",
+            "description": "File glob pattern to include (e.g. '*.rs', '*.py'). Optional."
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum number of results to return. Default 50."
+          }
+        },
+        "required": ["pattern"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_search",
+      "description": "Search the web for information. Returns search results with titles, URLs, and snippets. Use this to find current information, documentation, or solutions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query."
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum number of results to return. Default 5."
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_extract",
+      "description": "Extract and read the text content from a web page URL. Returns the page text content, stripped of HTML tags.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL of the web page to extract content from."
+          },
+          "max_length": {
+            "type": "integer",
+            "description": "Maximum characters to return. Default 10000."
+          }
+        },
+        "required": ["url"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "memory",
+      "description": "Manage persistent memory that survives across sessions. You have two stores: 'memory' for your own notes and 'user' for user profile. Actions: 'add', 'replace', 'remove', 'read'.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["add", "replace", "remove", "read"],
+            "description": "Action to perform on the memory store."
+          },
+          "target": {
+            "type": "string",
+            "enum": ["memory", "user"],
+            "description": "Which store to operate on: 'memory' for agent notes or 'user' for user profile."
+          },
+          "content": {
+            "type": "string",
+            "description": "For 'add': the entry text. For 'replace': the new replacement text. For 'remove': a snippet matching the entry to remove."
+          },
+          "old_content": {
+            "type": "string",
+            "description": "For 'replace' only: a short unique substring of the entry to find."
+          }
+        },
+        "required": ["action", "target"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "approval_check",
+      "description": "Check if a terminal command is dangerous. Returns danger level and explanation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The command to check for dangerous patterns."
+          }
+        },
+        "required": ["command"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "todo",
+      "description": "Manage a task list for planning and tracking work. Actions: 'add' creates a new task, 'complete' marks a task done, 'remove' deletes a task, 'list' shows all tasks, 'update' changes task content.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["add", "complete", "remove", "list", "update"],
+            "description": "Action to perform on the todo list."
+          },
+          "id": {
+            "type": "string",
+            "description": "Task ID (required for complete, remove, update actions)."
+          },
+          "content": {
+            "type": "string",
+            "description": "Task content text (required for add and update actions)."
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Task priority. Default 'medium'. Used with 'add' action."
+          }
+        },
+        "required": ["action"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "execute_code",
+      "description": "Execute code in a sandboxed environment. Supports python, javascript, bash/cmd, and powershell. Returns stdout, stderr, and exit code.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code to execute."
+          },
+          "language": {
+            "type": "string",
+            "enum": ["python", "javascript", "bash", "powershell", "cmd"],
+            "description": "Programming language of the code. Default 'python'."
+          },
+          "timeout": {
+            "type": "integer",
+            "description": "Timeout in seconds. Default 30, max 300."
+          }
+        },
+        "required": ["code"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "browser_navigate",
+      "description": "Navigate to a URL and fetch page content. Returns page title, text content, and HTTP status.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL to navigate to."
+          }
+        },
+        "required": ["url"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "browser_back",
+      "description": "Navigate back to the previous page in browser history.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "browser_snapshot",
+      "description": "Get a text snapshot of the current browser page.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "process_spawn",
+      "description": "Spawn a background process and track it. Returns process ID for later status checks.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The command to run in the background."
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory. Optional."
+          }
+        },
+        "required": ["command"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "process_status",
+      "description": "Check the status of a background process.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Process ID returned by process_spawn."
+          }
+        },
+        "required": ["id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "process_list",
+      "description": "List all tracked background processes.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "process_output",
+      "description": "Get the full output of a background process.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Process ID returned by process_spawn."
+          }
+        },
+        "required": ["id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "process_kill",
+      "description": "Kill a running background process.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Process ID to kill."
+          }
+        },
+        "required": ["id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cron_add",
+      "description": "Create a scheduled cron job. Uses standard 5-field cron expression (min hour day month weekday).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the job."
+          },
+          "schedule": {
+            "type": "string",
+            "description": "Cron expression: min hour day month weekday (e.g., '0 9 * * *' for daily at 9am)."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The task prompt to execute when the job triggers."
+          },
+          "platform": {
+            "type": "string",
+            "description": "Platform to deliver results to (e.g., 'telegram', 'discord'). Optional."
+          }
+        },
+        "required": ["name", "schedule", "prompt"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cron_list",
+      "description": "List all cron jobs.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cron_remove",
+      "description": "Remove a cron job by ID.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Cron job ID to remove."
+          }
+        },
+        "required": ["id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "session_search",
+      "description": "Search past conversation sessions using full-text search. Returns matching sessions with relevance.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query to find in past conversations."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum results to return. Default 10."
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "skill_create",
+      "description": "Create a new skill that can be reused across sessions. Skills are stored as markdown files.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Skill name (lowercase, hyphens allowed)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description of what the skill does."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full skill content in markdown format."
+          }
+        },
+        "required": ["name", "description", "content"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "skill_list",
+      "description": "List all available skills.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "skill_view",
+      "description": "View the content of a specific skill.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the skill to view."
+          }
+        },
+        "required": ["name"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "image_analyze",
+      "description": "Analyze an image using vision AI. Returns a detailed description or answers questions about the image.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image_path": {
+            "type": "string",
+            "description": "Local file path to the image."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What to analyze or ask about the image."
+          }
+        },
+        "required": ["image_path", "prompt"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "mcp_list_servers",
+      "description": "List configured MCP (Model Context Protocol) servers.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "mcp_discover_tools",
+      "description": "Discover available tools from an MCP server.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "server_name": {
+            "type": "string",
+            "description": "Name of the MCP server to query."
+          }
+        },
+        "required": ["server_name"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "mcp_call_tool",
+      "description": "Call a tool on an MCP server.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "server_name": {
+            "type": "string",
+            "description": "Name of the MCP server."
+          },
+          "tool_name": {
+            "type": "string",
+            "description": "Name of the tool to call."
+          },
+          "arguments": {
+            "type": "string",
+            "description": "JSON string of tool arguments."
+          }
+        },
+        "required": ["server_name", "tool_name", "arguments"]
+      }
+    }
+  }
+]
