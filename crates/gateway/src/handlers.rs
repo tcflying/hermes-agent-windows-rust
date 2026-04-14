@@ -129,6 +129,11 @@ pub async fn start_server(port: u16) -> Result<()> {
                 .join("sessions.db")
         });
 
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| anyhow::anyhow!("Failed to create .hermes directory: {}", e))?;
+    }
+
     let session_db = SessionDb::new(db_path)
         .map_err(|e| anyhow::anyhow!("Failed to open session DB: {}", e))?;
     print!("\x1b[32m  ✓ Session DB loaded\x1b[0m\n");
@@ -143,17 +148,33 @@ pub async fn start_server(port: u16) -> Result<()> {
         });
 
     let mut config_loader = ConfigLoader::new();
-    if let Err(e) = config_loader.load(config_path) {
+    let config_source = if std::env::var("HERMES_CONFIG").is_ok() {
+        "HERMES_CONFIG env"
+    } else if config_path.exists() {
+        "yaml file"
+    } else {
+        "defaults"
+    };
+    if let Err(e) = config_loader.load(config_path.clone()) {
         print!("\x1b[33m  ⚠ Config not loaded: {}\x1b[0m\n", e);
     } else {
-        print!("\x1b[32m  ✓ Config loaded\x1b[0m\n");
+        if config_path.exists() {
+            print!("\x1b[32m  ✓ Config loaded from {}: {}\x1b[0m\n", config_source, config_path.display());
+        } else {
+            print!("\x1b[33m  ⚠ Config from {} (file not found)\x1b[0m\n", config_source);
+        }
     }
 
-    let has_key = std::env::var("MINIMAX_API_KEY").map(|k| !k.is_empty()).unwrap_or(false);
-    if has_key {
-        print!("\x1b[32m  ✓ API key set\x1b[0m\n");
+    let config = config_loader.get();
+    print!("\x1b[36m  ℹ Provider: {} | Model: {}\x1b[0m\n", config.provider, config.model);
+
+    let api_key_env = std::env::var(&format!("{}_API_KEY", config.provider.to_uppercase()))
+        .or_else(|_| std::env::var("MINIMAX_API_KEY".to_string()))
+        .unwrap_or_default();
+    if api_key_env.is_empty() {
+        print!("\x1b[33m  ⚠ No API key for {} (may not be required)\x1b[0m\n", config.provider.to_uppercase());
     } else {
-        print!("\x1b[31m  ✗ No MINIMAX_API_KEY env var!\x1b[0m\n");
+        print!("\x1b[32m  ✓ API key set for {}\x1b[0m\n", config.provider.to_uppercase());
     }
     print!("\n");
 

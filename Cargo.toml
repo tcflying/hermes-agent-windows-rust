@@ -8,7 +8,7 @@ members = [
     "crates/gateway",
     "crates/cli",
     "crates/utils",
-    # "crates/ui/src-tauri",
+    "crates/ui/src-tauri",
 ]
 
 [workspace.package]
