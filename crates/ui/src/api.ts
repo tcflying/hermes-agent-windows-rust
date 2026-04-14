@@ -57,6 +57,11 @@ export interface SessionInfo {
 export interface ToolInfo {
   name: string;
   description: string;
+  function?: {
+    name: string;
+    description: string;
+    parameters?: Record<string, unknown>;
+  };
 }
 
 export async function chat(request: ChatRequest): Promise<ChatResponse> {
