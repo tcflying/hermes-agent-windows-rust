@@ -33,3 +33,4 @@ sha2 = "0.10"
     hermes-session = { path = "../session" }
     hermes-agent = { path = "../agent" }
     hermes-config = { path = "../config" }
+    hermes-utils = { path = "../utils" }

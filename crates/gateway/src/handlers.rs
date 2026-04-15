@@ -187,6 +187,29 @@ async fn health() -> &'static str {
     "OK"
 }
 
+fn setup_log_bridge(log_buffer: &Arc<Mutex<LogBuffer>>) -> std::sync::mpsc::Receiver<hermes_utils::LogEntry> {
+    let (tx, rx) = std::sync::mpsc::channel::<hermes_utils::LogEntry>();
+    hermes_utils::init_log_sender(tx);
+    rx
+}
+
+fn flush_log_bridge(rx: &std::sync::mpsc::Receiver<hermes_utils::LogEntry>, log_buffer: &Arc<Mutex<LogBuffer>>) {
+    while let Ok(entry) = rx.try_recv() {
+        if let Ok(mut buf) = log_buffer.lock() {
+            buf.push(crate::logging::LogEntry {
+                timestamp: entry.timestamp,
+                level: entry.level,
+                target: entry.target,
+                message: entry.message,
+                model: entry.model,
+                session_id: entry.session_id,
+                metadata: None,
+            });
+        }
+    }
+    hermes_utils::drop_log_sender();
+}
+
 async fn chat(
     State(state): State<AppState>,
     Json(req): Json<ChatRequest>,
@@ -231,8 +254,10 @@ async fn chat(
         })
         .collect();
 
+    let log_rx = setup_log_bridge(&state.log_buffer);
     match chat::run_conversation(&model, &api_url, &api_key, messages, Some(state.interrupt_flag.clone()), None).await {
         Ok(response) => {
+            flush_log_bridge(&log_rx, &state.log_buffer);
             state.session_db.write().await.save_message(&session_id, "assistant", &response.content)
                 .await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
@@ -307,8 +332,12 @@ async fn chat_stream(
 
     let tx_clone = tx.clone();
     let token_tx_clone = token_tx.clone();
+    let log_rx = setup_log_bridge(&state.log_buffer);
+    let state_log = state.clone();
     tokio::spawn(async move {
         let result = chat::run_conversation(&model, &api_url, &api_key, messages, Some(interrupt_flag), Some(token_tx)).await;
+
+        flush_log_bridge(&log_rx, &state_log.log_buffer);
 
         match result {
             Ok(response) => {

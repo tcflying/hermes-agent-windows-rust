@@ -33,6 +33,7 @@ fn log_agent(level: &str, msg: &str) {
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("hermes_agent.log") {
         let _ = f.write_all(log_line.as_bytes());
     }
+    hermes_utils::agent_log::send_log(hermes_utils::agent_log::LogEntry::now(level, "agent", msg, None, None));
 }
 
 pub fn get_tool_definitions() -> Vec<serde_json::Value> {
