@@ -154,6 +154,26 @@ fn build_schema() -> (HashMap<String, ConfigFieldInfo>, Vec<String>) {
         default: serde_json::Value::Bool(false),
         description: "Enable Signal gateway adapter".into(),
     });
+    fields.insert("platforms.feishu.app_id".into(), ConfigFieldInfo {
+        r#type: "string".into(),
+        default: serde_json::Value::String(String::new()),
+        description: "Feishu/Lark App ID".into(),
+    });
+    fields.insert("platforms.feishu.app_secret".into(), ConfigFieldInfo {
+        r#type: "string".into(),
+        default: serde_json::Value::String(String::new()),
+        description: "Feishu/Lark App Secret".into(),
+    });
+    fields.insert("platforms.feishu.verification_token".into(), ConfigFieldInfo {
+        r#type: "string".into(),
+        default: serde_json::Value::String(String::new()),
+        description: "Feishu/Lark Event Verification Token".into(),
+    });
+    fields.insert("platforms.feishu.enabled".into(), ConfigFieldInfo {
+        r#type: "boolean".into(),
+        default: serde_json::Value::Bool(false),
+        description: "Enable Feishu/Lark gateway adapter".into(),
+    });
 
     let category_order = vec![
         "model".into(),
@@ -172,6 +192,10 @@ fn build_schema() -> (HashMap<String, ConfigFieldInfo>, Vec<String>) {
         "platforms.whatsapp.enabled".into(),
         "platforms.signal.http_url".into(),
         "platforms.signal.enabled".into(),
+        "platforms.feishu.app_id".into(),
+        "platforms.feishu.app_secret".into(),
+        "platforms.feishu.verification_token".into(),
+        "platforms.feishu.enabled".into(),
     ];
 
     (fields, category_order)

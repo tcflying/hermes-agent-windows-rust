@@ -1,4 +1,5 @@
 pub mod discord;
+pub mod feishu;
 pub mod signal;
 pub mod slack;
 pub mod telegram;

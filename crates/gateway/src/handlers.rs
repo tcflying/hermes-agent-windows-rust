@@ -85,6 +85,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/files/write", post(write_file))
         .route("/api/terminal", post(exec_terminal))
         .route("/api/chat/interrupt", post(chat_interrupt))
+        .route("/api/webhook/feishu", post(feishu_webhook))
         .route("/api/config", get(get_config).put(update_config))
         .route("/api/config/providers", get(list_providers))
         .route("/api/config/provider", post(set_provider))
@@ -111,7 +112,7 @@ pub fn create_router(state: AppState) -> Router {
 
 pub async fn start_server(port: u16) -> Result<()> {
     print!("\x1b[33m╔══════════════════════════════════════╗\x1b[0m\n");
-    print!("\x1b[33m║     Hermes Agent Gateway v0.6.0      ║\x1b[0m\n");
+    print!("\x1b[33m║     Hermes Agent Gateway v0.6.7      ║\x1b[0m\n");
     print!("\x1b[33m╚══════════════════════════════════════╝\x1b[0m\n");
     print!("\x1b[36m  Listening on http://0.0.0.0:{}\x1b[0m\n", port);
     print!("\x1b[36m  Endpoints: /health /api/chat /api/chat/stream\x1b[0m\n");
@@ -149,11 +150,54 @@ pub async fn start_server(port: u16) -> Result<()> {
         print!("\x1b[32m  ✓ Config loaded\x1b[0m\n");
     }
 
+    // --- Load .env file into process env vars ---
+    let hermes_home = std::env::var("HERMES_HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            dirs::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join(".hermes")
+        });
+    let dotenv_path = hermes_home.join(".env");
+    if dotenv_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&dotenv_path) {
+            let mut loaded = 0usize;
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
+                }
+                if let Some((k, v)) = trimmed.split_once('=') {
+                    let key = k.trim();
+                    let val = v.trim();
+                    if !key.is_empty() && !val.is_empty() {
+                    if std::env::var(key).is_err() {
+                            std::env::set_var(key, val);
+                            loaded += 1;
+                        }
+                    }
+                }
+            }
+            if loaded > 0 {
+                print!("\x1b[32m  ✓ Loaded {} env vars from .env\x1b[0m\n", loaded);
+            }
+        }
+    }
+
+    // --- Inject api_key from config.yaml if env var missing ---
+    let cfg = config_loader.get();
+    if std::env::var("MINIMAX_API_KEY").is_err() || std::env::var("MINIMAX_API_KEY").map(|k| k.is_empty()).unwrap_or(true) {
+        if !cfg.api_key.is_empty() {
+            std::env::set_var("MINIMAX_API_KEY", &cfg.api_key);
+            print!("\x1b[32m  ✓ MINIMAX_API_KEY injected from config.yaml\x1b[0m\n");
+        }
+    }
+
     let has_key = std::env::var("MINIMAX_API_KEY").map(|k| !k.is_empty()).unwrap_or(false);
     if has_key {
         print!("\x1b[32m  ✓ API key set\x1b[0m\n");
     } else {
-        print!("\x1b[31m  ✗ No MINIMAX_API_KEY env var!\x1b[0m\n");
+        print!("\x1b[31m  ✗ No MINIMAX_API_KEY found (env, .env, or config.yaml)\x1b[0m\n");
     }
     print!("\n");
 
@@ -185,6 +229,78 @@ pub async fn start_server(port: u16) -> Result<()> {
 
 async fn health() -> &'static str {
     "OK"
+}
+
+async fn feishu_webhook(
+    State(state): State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    if body.get("type").and_then(|v| v.as_str()) == Some("url_verification") {
+        let challenge = body.get("challenge").and_then(|v| v.as_str()).unwrap_or("");
+        print!("\x1b[36m[feishu] URL verification challenge received\x1b[0m\n");
+        return Ok(Json(serde_json::json!({ "challenge": challenge })));
+    }
+
+    let cfg = state.config.read().await;
+    let feishu_cfg = cfg.get().platforms.feishu.clone();
+    drop(cfg);
+    if !feishu_cfg.enabled {
+        return Ok(Json(serde_json::json!({"ok": false, "error": "feishu not enabled"})));
+    }
+
+    let adapter = crate::platforms::feishu::FeishuAdapter::new(
+        &feishu_cfg.app_id,
+        &feishu_cfg.app_secret,
+        &feishu_cfg.verification_token,
+    );
+
+    if let Some(parsed) = adapter.parse_event(&body).await {
+        let preview = if parsed.text.len() > 60 { format!("{}...", &parsed.text[..parsed.text.ceil_char_boundary(60)]) } else { parsed.text.clone() };
+        print!("\x1b[35m[feishu] message from {} in {}: \"{}\"\x1b[0m\n", parsed.user_id, parsed.chat_type, preview);
+
+        let adapter_for_reply = crate::platforms::feishu::FeishuAdapter::new(
+            &feishu_cfg.app_id,
+            &feishu_cfg.app_secret,
+            &feishu_cfg.verification_token,
+        );
+        let messages = vec![hermes_agent::chat::Message {
+            role: "user".to_string(),
+            content: Some(parsed.text.clone()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }];
+        let config = state.config.read().await.get().clone();
+        let api_url = std::env::var("MINIMAX_API_URL").unwrap_or_else(|_| config.api_url.clone());
+        let api_key = std::env::var("MINIMAX_API_KEY").unwrap_or_else(|_| config.api_key.clone());
+        let model = config.model.clone();
+
+        let agent = hermes_agent::chat::ChatAgent::new();
+        let chat_result = agent.run_conversation(
+            &model,
+            &api_url,
+            &api_key,
+            messages,
+            None,
+            None,
+        ).await;
+
+        match chat_result {
+            Ok(response) => {
+                let reply_text = response.content.trim().to_string();
+                if let Err(e) = adapter_for_reply.reply_message(&parsed.message_id, &reply_text).await {
+                    print!("\x1b[31m[feishu] reply failed: {}\x1b[0m\n", e);
+                }
+            }
+            Err(e) => {
+                let err_msg = format!("Agent error: {}", e);
+                print!("\x1b[31m[feishu] {}\x1b[0m\n", err_msg);
+                let _ = adapter_for_reply.reply_message(&parsed.message_id, &err_msg).await;
+            }
+        }
+    }
+
+    Ok(Json(serde_json::json!({"ok": true})))
 }
 
 fn setup_log_bridge(log_buffer: &Arc<Mutex<LogBuffer>>) -> std::sync::mpsc::Receiver<hermes_utils::LogEntry> {
@@ -770,6 +886,10 @@ async fn set_provider(
         signal_http_url: None,
         signal_account: None,
         signal_enabled: None,
+        feishu_app_id: None,
+        feishu_app_secret: None,
+        feishu_verification_token: None,
+        feishu_enabled: None,
     };
 
     if let Some(ref key) = update.api_key {
@@ -1023,6 +1143,10 @@ async fn switch_model(
         signal_http_url: None,
         signal_account: None,
         signal_enabled: None,
+        feishu_app_id: None,
+        feishu_app_secret: None,
+        feishu_verification_token: None,
+        feishu_enabled: None,
     };
     if let Err(e) = state.config.write().await.update(update) {
         return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {

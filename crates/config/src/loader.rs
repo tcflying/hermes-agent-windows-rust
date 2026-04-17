@@ -32,6 +32,8 @@ pub struct PlatformConfig {
     pub whatsapp: WhatsAppConfig,
     #[serde(default)]
     pub signal: SignalConfig,
+    #[serde(default)]
+    pub feishu: FeishuConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -74,6 +76,18 @@ pub struct SignalConfig {
     pub http_url: String,
     #[serde(default)]
     pub account: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FeishuConfig {
+    #[serde(default)]
+    pub app_id: String,
+    #[serde(default)]
+    pub app_secret: String,
+    #[serde(default)]
+    pub verification_token: String,
     #[serde(default)]
     pub enabled: bool,
 }
@@ -126,6 +140,7 @@ impl Default for PlatformConfig {
             slack: SlackConfig::default(),
             whatsapp: WhatsAppConfig::default(),
             signal: SignalConfig::default(),
+            feishu: FeishuConfig::default(),
         }
     }
 }
@@ -177,6 +192,17 @@ impl Default for SignalConfig {
     }
 }
 
+impl Default for FeishuConfig {
+    fn default() -> Self {
+        Self {
+            app_id: String::new(),
+            app_secret: String::new(),
+            verification_token: String::new(),
+            enabled: false,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigUpdate {
     pub model: Option<String>,
@@ -196,6 +222,10 @@ pub struct ConfigUpdate {
     pub signal_http_url: Option<String>,
     pub signal_account: Option<String>,
     pub signal_enabled: Option<bool>,
+    pub feishu_app_id: Option<String>,
+    pub feishu_app_secret: Option<String>,
+    pub feishu_verification_token: Option<String>,
+    pub feishu_enabled: Option<bool>,
 }
 
 pub struct ConfigLoader {
@@ -289,6 +319,18 @@ impl ConfigLoader {
         if let Some(e) = update.signal_enabled {
             self.config.platforms.signal.enabled = e;
         }
+        if let Some(id) = update.feishu_app_id {
+            self.config.platforms.feishu.app_id = id;
+        }
+        if let Some(secret) = update.feishu_app_secret {
+            self.config.platforms.feishu.app_secret = secret;
+        }
+        if let Some(token) = update.feishu_verification_token {
+            self.config.platforms.feishu.verification_token = token;
+        }
+        if let Some(e) = update.feishu_enabled {
+            self.config.platforms.feishu.enabled = e;
+        }
         self.save()
     }
 
@@ -370,6 +412,10 @@ mod tests {
             signal_http_url: None,
             signal_account: None,
             signal_enabled: None,
+            feishu_app_id: None,
+            feishu_app_secret: None,
+            feishu_verification_token: None,
+            feishu_enabled: None,
         };
         let yaml = serde_yaml::to_string(&update).unwrap();
         assert!(yaml.contains("gpt-4o"));
@@ -414,6 +460,10 @@ mod tests {
                 signal_http_url: None,
                 signal_account: None,
                 signal_enabled: None,
+                feishu_app_id: None,
+                feishu_app_secret: None,
+                feishu_verification_token: None,
+                feishu_enabled: None,
             })
             .unwrap();
         assert_eq!(loader.get().model, "claude-sonnet-4-20250514");
