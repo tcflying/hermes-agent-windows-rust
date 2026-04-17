@@ -30,6 +30,7 @@ oauth2.workspace = true
 dirs.workspace = true
 serde_yaml = "0.9"
 sha2 = "0.10"
+prost.workspace = true
     hermes-session = { path = "../session" }
     hermes-agent = { path = "../agent" }
     hermes-config = { path = "../config" }

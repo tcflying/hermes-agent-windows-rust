@@ -87,8 +87,6 @@ pub struct FeishuConfig {
     #[serde(default)]
     pub app_secret: String,
     #[serde(default)]
-    pub verification_token: String,
-    #[serde(default)]
     pub enabled: bool,
 }
 
@@ -197,7 +195,6 @@ impl Default for FeishuConfig {
         Self {
             app_id: String::new(),
             app_secret: String::new(),
-            verification_token: String::new(),
             enabled: false,
         }
     }
@@ -224,7 +221,6 @@ pub struct ConfigUpdate {
     pub signal_enabled: Option<bool>,
     pub feishu_app_id: Option<String>,
     pub feishu_app_secret: Option<String>,
-    pub feishu_verification_token: Option<String>,
     pub feishu_enabled: Option<bool>,
 }
 
@@ -325,9 +321,6 @@ impl ConfigLoader {
         if let Some(secret) = update.feishu_app_secret {
             self.config.platforms.feishu.app_secret = secret;
         }
-        if let Some(token) = update.feishu_verification_token {
-            self.config.platforms.feishu.verification_token = token;
-        }
         if let Some(e) = update.feishu_enabled {
             self.config.platforms.feishu.enabled = e;
         }
@@ -414,7 +407,6 @@ mod tests {
             signal_enabled: None,
             feishu_app_id: None,
             feishu_app_secret: None,
-            feishu_verification_token: None,
             feishu_enabled: None,
         };
         let yaml = serde_yaml::to_string(&update).unwrap();
@@ -462,7 +454,6 @@ mod tests {
                 signal_enabled: None,
                 feishu_app_id: None,
                 feishu_app_secret: None,
-                feishu_verification_token: None,
                 feishu_enabled: None,
             })
             .unwrap();

@@ -85,7 +85,6 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/files/write", post(write_file))
         .route("/api/terminal", post(exec_terminal))
         .route("/api/chat/interrupt", post(chat_interrupt))
-        .route("/api/webhook/feishu", post(feishu_webhook))
         .route("/api/config", get(get_config).put(update_config))
         .route("/api/config/providers", get(list_providers))
         .route("/api/config/provider", post(set_provider))
@@ -201,6 +200,60 @@ pub async fn start_server(port: u16) -> Result<()> {
     }
     print!("\n");
 
+    // --- Start Feishu WebSocket if enabled ---
+    let feishu_cfg = config_loader.get().platforms.feishu.clone();
+    if feishu_cfg.enabled && !feishu_cfg.app_id.is_empty() && !feishu_cfg.app_secret.is_empty() {
+        let feishu = crate::platforms::feishu::FeishuAdapter::new(
+            &feishu_cfg.app_id,
+            &feishu_cfg.app_secret,
+        );
+        let config_for_reply = config_loader.get().clone();
+        match feishu.start_ws().await {
+            Ok(mut rx) => {
+                let feishu_for_reply = crate::platforms::feishu::FeishuAdapter::new(
+                    &feishu_cfg.app_id,
+                    &feishu_cfg.app_secret,
+                );
+                tokio::spawn(async move {
+                    while let Some(msg) = rx.recv().await {
+                        let preview = if msg.text.len() > 60 { format!("{}...", &msg.text[..msg.text.ceil_char_boundary(60)]) } else { msg.text.clone() };
+                        print!("\x1b[35m[feishu] processing: \"{}\"\x1b[0m\n", preview);
+
+                        let agent = hermes_agent::chat::ChatAgent::new();
+                        let messages = vec![hermes_agent::chat::Message {
+                            role: "user".to_string(),
+                            content: Some(msg.text.clone()),
+                            tool_calls: None,
+                            tool_call_id: None,
+                            name: None,
+                        }];
+                        let api_url = std::env::var("MINIMAX_API_URL").unwrap_or_else(|_| config_for_reply.api_url.clone());
+                        let api_key = std::env::var("MINIMAX_API_KEY").unwrap_or_else(|_| config_for_reply.api_key.clone());
+                        let model = config_for_reply.model.clone();
+
+                        let result = agent.run_conversation(&model, &api_url, &api_key, messages, None, None).await;
+                        match result {
+                            Ok(resp) => {
+                                if let Err(e) = feishu_for_reply.reply_message(&msg.message_id, resp.content.trim()).await {
+                                    print!("\x1b[31m[feishu] reply failed: {}\x1b[0m\n", e);
+                                }
+                            }
+                            Err(e) => {
+                                let err_msg = format!("Agent error: {}", e);
+                                print!("\x1b[31m[feishu] {}\x1b[0m\n", err_msg);
+                            }
+                        }
+                    }
+                });
+            }
+            Err(e) => {
+                print!("\x1b[31m  ✗ Feishu WS start failed: {}\x1b[0m\n", e);
+            }
+        }
+    } else if feishu_cfg.enabled {
+        print!("\x1b[33m  ⚠ Feishu enabled but app_id/app_secret not configured\x1b[0m\n");
+    }
+
     let state = AppState {
         session_db: Arc::new(RwLock::new(session_db)),
         config: Arc::new(RwLock::new(config_loader)),
@@ -229,78 +282,6 @@ pub async fn start_server(port: u16) -> Result<()> {
 
 async fn health() -> &'static str {
     "OK"
-}
-
-async fn feishu_webhook(
-    State(state): State<AppState>,
-    Json(body): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if body.get("type").and_then(|v| v.as_str()) == Some("url_verification") {
-        let challenge = body.get("challenge").and_then(|v| v.as_str()).unwrap_or("");
-        print!("\x1b[36m[feishu] URL verification challenge received\x1b[0m\n");
-        return Ok(Json(serde_json::json!({ "challenge": challenge })));
-    }
-
-    let cfg = state.config.read().await;
-    let feishu_cfg = cfg.get().platforms.feishu.clone();
-    drop(cfg);
-    if !feishu_cfg.enabled {
-        return Ok(Json(serde_json::json!({"ok": false, "error": "feishu not enabled"})));
-    }
-
-    let adapter = crate::platforms::feishu::FeishuAdapter::new(
-        &feishu_cfg.app_id,
-        &feishu_cfg.app_secret,
-        &feishu_cfg.verification_token,
-    );
-
-    if let Some(parsed) = adapter.parse_event(&body).await {
-        let preview = if parsed.text.len() > 60 { format!("{}...", &parsed.text[..parsed.text.ceil_char_boundary(60)]) } else { parsed.text.clone() };
-        print!("\x1b[35m[feishu] message from {} in {}: \"{}\"\x1b[0m\n", parsed.user_id, parsed.chat_type, preview);
-
-        let adapter_for_reply = crate::platforms::feishu::FeishuAdapter::new(
-            &feishu_cfg.app_id,
-            &feishu_cfg.app_secret,
-            &feishu_cfg.verification_token,
-        );
-        let messages = vec![hermes_agent::chat::Message {
-            role: "user".to_string(),
-            content: Some(parsed.text.clone()),
-            tool_calls: None,
-            tool_call_id: None,
-            name: None,
-        }];
-        let config = state.config.read().await.get().clone();
-        let api_url = std::env::var("MINIMAX_API_URL").unwrap_or_else(|_| config.api_url.clone());
-        let api_key = std::env::var("MINIMAX_API_KEY").unwrap_or_else(|_| config.api_key.clone());
-        let model = config.model.clone();
-
-        let agent = hermes_agent::chat::ChatAgent::new();
-        let chat_result = agent.run_conversation(
-            &model,
-            &api_url,
-            &api_key,
-            messages,
-            None,
-            None,
-        ).await;
-
-        match chat_result {
-            Ok(response) => {
-                let reply_text = response.content.trim().to_string();
-                if let Err(e) = adapter_for_reply.reply_message(&parsed.message_id, &reply_text).await {
-                    print!("\x1b[31m[feishu] reply failed: {}\x1b[0m\n", e);
-                }
-            }
-            Err(e) => {
-                let err_msg = format!("Agent error: {}", e);
-                print!("\x1b[31m[feishu] {}\x1b[0m\n", err_msg);
-                let _ = adapter_for_reply.reply_message(&parsed.message_id, &err_msg).await;
-            }
-        }
-    }
-
-    Ok(Json(serde_json::json!({"ok": true})))
 }
 
 fn setup_log_bridge(log_buffer: &Arc<Mutex<LogBuffer>>) -> std::sync::mpsc::Receiver<hermes_utils::LogEntry> {
@@ -888,7 +869,6 @@ async fn set_provider(
         signal_enabled: None,
         feishu_app_id: None,
         feishu_app_secret: None,
-        feishu_verification_token: None,
         feishu_enabled: None,
     };
 
@@ -1145,7 +1125,6 @@ async fn switch_model(
         signal_enabled: None,
         feishu_app_id: None,
         feishu_app_secret: None,
-        feishu_verification_token: None,
         feishu_enabled: None,
     };
     if let Err(e) = state.config.write().await.update(update) {
